@@ -1,40 +1,47 @@
+// 2024.11.16 reworked how last() is handled in code to get to better O(1) time.
+// Also see main copy.js for prior version.
+
 class Node {
   constructor(value) {
     this.value = value;
-    this.next = null; // Reminder: null is the default behavior
+    this.next = null; // The next node, initially null
   }
 }
 
 class LinkedList {
-  constructor(head = null) {
-    this.head = head;
+  constructor() {
+    this.head = null; // Head node
+    this.tail = null; // Tail node
   }
 
-  // The following are helper methods for the linked list.
-
-  // This method adds a new node containing value to the end of the list
+  // Adds a new node containing value to the end of the list
   append(value) {
     let newNode = new Node(value);
 
-    if (this.head === null) {
+    if (!this.head) {
+      // If the list is empty, both head and tail point to the new node
       this.head = newNode;
-      return;
+      this.tail = newNode;
+    } else {
+      // Otherwise, add the new node at the end and update the tail
+      this.tail.next = newNode;
+      this.tail = newNode;
     }
-    let currentNode = this.head;
-    while (currentNode.next !== null) {
-      currentNode = currentNode.next;
-    }
-    currentNode.next = newNode;
   }
 
-  // This method adds a new node containing value to the start of the list
+  // Adds a new node containing value to the start of the list
   prepend(value) {
     let newNode = new Node(value);
     newNode.next = this.head;
     this.head = newNode;
+    
+    if (!this.tail) {
+      // If the list was empty, tail should also point to the new node
+      this.tail = newNode;
+    }
   }
 
-  // This method returns the total number of nodes in the list.
+  // Returns the total number of nodes in the list
   size() {
     let count = 0;
     let currentNode = this.head;
@@ -45,22 +52,17 @@ class LinkedList {
     return count;
   }
 
-  // This method returns the first node in the list. I named it "first" to avoid a naming conflict.
+  // Returns the first node in the list
   first() {
     return this.head;
   }
 
-  // This method returns the last node in the list. I named it "last" because I liked it better.
+  // Returns the last node in the list (O(1) due to tail pointer)
   last() {
-    if (!this.head) return null; // Return null if the list is empty
-    let lastNode = this.head;
-    while (lastNode.next) {
-      lastNode = lastNode.next; // Traverse until the last node
-    }
-    return lastNode;
+    return this.tail;
   }
 
-  // This method returns the node at the given index
+  // Returns the node at the given index
   at(index) {
     let count = 0;
     let currentNode = this.head;
@@ -74,51 +76,34 @@ class LinkedList {
     return null;
   }
 
-  // This method removes the last element from the list
+  // Removes the last element from the list
   pop() {
     if (!this.head) return null; // Empty list, nothing to pop
 
-    if (this.size() === 1) {
-      this.head = null; // Only one element, just set head to null
+    if (this.head === this.tail) {
+      // If there's only one node in the list
+      this.head = null;
+      this.tail = null;
       return;
     }
-    // Use a variable only to traverse the linked list
-    // In this case find the second to last node, i.e., the penultimate node
-    let currentNode = this.head;
 
-    // Vital for below: This ensures that the current node is not the last node (because the last node's next would be null).
-    // And, this ensures that the next node is not the last node either. This is the condition that helps you stop at the second-to-last node.
-    while (currentNode.next && currentNode.next !== this.last()) {
+    // Traverse the list to find the second-to-last node
+    let currentNode = this.head;
+    while (currentNode.next !== this.tail) {
       currentNode = currentNode.next;
     }
 
-    // Now, currentNode is the second-to-last node
-    currentNode.next = null; // Remove the last node
+    // Remove the last node
+    currentNode.next = null;
+    this.tail = currentNode; // Update the tail
   }
 
-  // This method returns true if the passed in value is in the list and otherwise returns false.
-
-  // OK code...
-
-  // contains(value) {
-  //   let currentNode = this.head;
-  //   while (currentNode) {
-  //     if (currentNode.value === value) {
-  //       return true;
-  //     }
-  //     currentNode = currentNode.next;
-  //   }
-  //   return false;
-  // }
-
-  // Better code...
+  // Checks if the list contains a value
   contains(value) {
     return this.find(value) !== null;
   }
 
-  // This method returns the index of the node containing value, or null if not found.
-  // NOTE - The method is supposed to return null when the value isn't found, but null is not a valid index for a node. It would be more appropriate to return -1 in that case, as -1 is commonly used to indicate that a value wasn't found in many programming contexts (like array searches).
-
+  // Returns the index of the node containing the value, or null if not found
   find(value) {
     let count = 0;
     let currentNode = this.head;
@@ -132,124 +117,115 @@ class LinkedList {
     return null;
   }
 
-  // This method represents your LinkedList objects as strings, so you can print them out and preview them in the console. The format should be: ( value ) -> ( value ) -> ( value ) -> null
+  // Returns a string representation of the list
   toString() {
     if (!this.head) return "null"; // Empty list
-    let storage = "";
+    let result = "";
     let currentNode = this.head;
     while (currentNode) {
-      storage += `( ${currentNode.value} ) -> `;
+      result += `( ${currentNode.value} ) -> `;
       currentNode = currentNode.next;
     }
-    storage += "null";
-    return storage;
+    result += "null"; // End of the list
+    return result;
   }
 
-  // Extra credit: This method inserts a new node with the provided value at the given index.
+  // Inserts a new node with the provided value at the given index
   insertAt(value, index) {
-    // Edge case: Inserting at the head (index 0)
     if (index === 0) {
-      this.prepend(value); // Reusing the prepend method
+      this.prepend(value); // Insert at the beginning
       return;
     }
 
-    // If the list is empty and index is not 0, we can't insert
-    if (!this.head && index > 0) {
-      throw new Error("List is empty, cannot insert at non-zero index.");
-    }
+    if (index > 0 && index < this.size()) {
+      let currentNode = this.head;
+      let count = 0;
+      let newNode = new Node(value);
 
-    // If the index is invalid (greater than or equal to the size of the list), throw an error
-    if (index < 0 || index > this.size()) {
-      throw new Error("Index out of bounds.");
-    }
-
-    let newNode = new Node(value);
-    let currentNode = this.head;
-    let count = 0;
-
-    // Traverse the list to find the position
-    while (currentNode) {
-      if (count === index - 1) {
-        newNode = new Node(value);
-        newNode.next = currentNode.next; // Point to the node that was previously at the index
-        currentNode.next = newNode; // Link the previous node to the new node
-        return;
+      // Traverse the list to find the position
+      while (count < index - 1) {
+        currentNode = currentNode.next;
+        count++;
       }
-      count++;
-      currentNode = currentNode.next;
-    }
 
-    let lastNode = this.last();
-    if (lastNode) {
-      lastNode.next = newNode; // Append to the last node if index is equal to size
+      newNode.next = currentNode.next;
+      currentNode.next = newNode;
+
+      // If inserting at the end, update the tail
+      if (!newNode.next) {
+        this.tail = newNode;
+      }
+    } else {
+      throw new Error("Index out of bounds");
     }
   }
 
-  // Extra credit: This method removes the node at a given index.
+  // Removes the node at the given index
   removeAt(index) {
-    // If the list is empty, we can't remove anything
-    if (!this.head && index > 0) {
-      throw new Error("List is already empty.");
-    }
+    if (index > 0 && index < this.size()) {
+      let currentNode = this.head;
+      let previousNode;
+      let count = 0;
 
-    // If the index is invalid (greater than or equal to the size of the list), throw an error
-    if (index < 0 || index >= this.size()) {
-      throw new Error("Index out of bounds.");
-    }
-
-    if (index === 0) {
-      this.head = this.head.next; // Update head
-      return this.head;
-    }
-    let currentNode = this.head;
-    let previousNode = null;
-    let count = 0;
-
-    // Traverse the list to find the position
-    while (currentNode) {
-      if (count === index) {
-        // Update the previous node's next pointer to skip the current node
-        previousNode.next = currentNode.next;
-        return; // Node removed, exit the function
+      // Remove the node at the given index
+      while (count < index) {
+        previousNode = currentNode;
+        currentNode = currentNode.next;
+        count++;
       }
-      previousNode = currentNode; // Move previousNode forward
-      currentNode = currentNode.next; // Move currentNode forward
-      count++;
+
+      previousNode.next = currentNode.next;
+
+      // If we removed the last node, update the tail
+      if (!currentNode.next) {
+        this.tail = previousNode;
+      }
+
+      return currentNode.value;
+    } else if (index === 0) {
+      this.head = this.head.next;
+      if (!this.head) {
+        this.tail = null; // If the list becomes empty, update tail to null
+      }
+    } else {
+      throw new Error("Index out of bounds");
     }
   }
-  
-  // My extra helper, not part of teh assignment: This method empties out the list.
+
+  // Clears the list
   clear() {
     this.head = null;
+    this.tail = null;
   }
 }
 
+
 const list = new LinkedList();
 
-list.append('dog');
-list.append('cat');
-list.append('parrot');
-list.append('hamster');
-list.append('snake');
-list.append('turtle');
+list.append("dog");
+list.append("cat");
+list.append("parrot");
+list.append("hamster");
+list.append("snake");
+list.append("turtle");
 console.log(list.toString());
 
-list.prepend('lion')
-list.append('zebra')
+list.prepend("lion");
+list.append("zebra");
 console.log(list.size());
 console.log(list.first());
 console.log(list.last());
 console.log(list.at(0));
-list.pop('zebra');
-console.log(list.contains('cat'));
+list.pop("zebra");
+console.log(list.contains("cat"));
 console.log(list.contains("rat"));
-console.log(list.find('snake'));
+console.log(list.find("snake"));
 console.log(list.toString());
 
-list.insertAt('tiger', 1);
+list.insertAt("tiger", 1);
 console.log(list.toString());
 
-list.removeAt(0)
+list.removeAt(0);
 list.removeAt(0);
 console.log(list.toString());
 
@@ -266,5 +242,4 @@ node2.next = node3;
 
 const list2 = new LinkedList(node0);
 
-
-console.log(list2.toString())
+console.log(list2.toString());
